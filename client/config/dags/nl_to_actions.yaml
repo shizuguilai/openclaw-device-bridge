@@ -1,0 +1,10 @@
+name: nl_to_actions
+executor: AsyncExecutor
+
+agents:
+  - name: screen_capture
+    type: ScreenCaptureAgent
+    depends_on: []
+    config:
+      format: png
+      quality: 80

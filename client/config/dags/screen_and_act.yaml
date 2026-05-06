@@ -1,0 +1,23 @@
+name: screen_and_act
+executor: AsyncExecutor
+
+agents:
+  - name: screen_capture
+    type: ScreenCaptureAgent
+    depends_on: []
+    config:
+      format: png
+      quality: 80
+
+  - name: ui_parse
+    type: UIParseAgent
+    depends_on: [screen_capture]
+    config:
+      parse_mode: accessibility_tree
+      max_elements: 50
+
+  - name: adb_action
+    type: ADBActionAgent
+    depends_on: [ui_parse]
+    config:
+      timeout: 5000

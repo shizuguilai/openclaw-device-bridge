@@ -1,0 +1,47 @@
+# Bridge Client 主配置
+bridge:
+  id: "macbook-pro-001"
+  name: "Local Bridge"
+
+relay:
+  url: "ws://127.0.0.1:8091"
+  auth_token: "${BRIDGE_AUTH_TOKEN}"
+  heartbeat_interval: 30
+  reconnect_max_delay: 60
+  reconnect_base_delay: 1
+
+devices:
+  adb_path: "adb"
+  poll_interval: 5
+  auto_discover: true
+  allowed_devices: []
+
+executor:
+  default: AsyncExecutor
+  timeout: 30.0
+  max_concurrent_tasks: 5
+
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s"
+  file:
+    enabled: true
+    path: logs/bridge.log
+    rotation: time
+    when: H
+    interval: 1
+    backup_count: 72
+  console:
+    enabled: true
+  device_log:
+    enabled: true
+    dir: logs/devices
+  audit_log:
+    enabled: true
+    path: logs/audit/operations.log
+
+security:
+  allowed_actions: []
+  blocked_packages: []
+  require_confirmation: false
+  max_shell_timeout: 10

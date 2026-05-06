@@ -1,0 +1,13 @@
+# Agent 元数据（供运维/文档；DAG 中通过 type 引用类名）
+version: 1
+agents:
+  - type: ScreenCaptureAgent
+    description: 设备截屏（PNG Base64）
+  - type: UIParseAgent
+    description: UI Automator 层级解析
+  - type: ADBActionAgent
+    description: DAG 末端示例触控
+  - type: AppLaunchAgent
+    description: 启动应用
+  - type: DeviceInfoAgent
+    description: 采集型号、分辨率、电量等

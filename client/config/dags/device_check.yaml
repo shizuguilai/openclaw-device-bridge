@@ -1,0 +1,8 @@
+name: device_check
+executor: AsyncExecutor
+
+agents:
+  - name: device_info
+    type: DeviceInfoAgent
+    depends_on: []
+    config: {}

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Device Bridge Console</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="header">
+    <h1>Device Bridge Console</h1>
+    <span id="conn-pill" class="pill">WS: …</span>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>设备</h2>
+      <ul id="device-list"></ul>
+    </aside>
+    <main class="main">
+      <section class="panel">
+        <h2>截屏</h2>
+        <div id="screen-wrap" class="screen-wrap">
+          <span class="muted">选择设备后点击「截图」</span>
+        </div>
+        <div class="row">
+          <button id="btn-shot">截图</button>
+          <button id="btn-home">Home</button>
+          <button id="btn-back">Back</button>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>操作</h2>
+        <label>文本 <input id="inp-text" type="text" placeholder="输入文本" /></label>
+        <button id="btn-send-text">发送文本</button>
+        <label>启动包名 <input id="inp-pkg" type="text" placeholder="com.example.app" /></label>
+        <button id="btn-launch">启动 App</button>
+        <label>DAG
+          <select id="sel-dag">
+            <option value="screen_and_act">screen_and_act</option>
+            <option value="device_check">device_check</option>
+          </select>
+        </label>
+        <button id="btn-dag">执行 DAG</button>
+      </section>
+      <section class="panel">
+        <h2>历史</h2>
+        <pre id="history" class="history"></pre>
+      </section>
+    </main>
+  </div>
+  <footer class="footer">
+    <pre id="log" class="log"></pre>
+  </footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>
