@@ -6,9 +6,21 @@ Bridge ↔ Relay WebSocket 消息协议（JSON dict，无 Protobuf）。
 
 from __future__ import annotations
 
+import hashlib
 import time
 import uuid
 from typing import Any
+
+
+def token_fingerprint(token: str) -> str:
+    """
+    日志用 token 指纹（不明文）：比对客户端配置的 token 与 Relay 侧是否一致。
+    两边日志中的 fingerprint 应完全相同；不同则说明 environment/YAML 不一致。
+    """
+    if not token:
+        return "empty"
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:10]
+    return f"len={len(token)} sha256_10={digest}"
 
 MSG_COMMAND = "command"
 MSG_RESULT = "result"

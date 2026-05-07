@@ -7,9 +7,10 @@ import json
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, Dict
 
 import websockets
+from websockets.exceptions import ConnectionClosed
 
 from shared.protocol import (
     build_auth_message,
@@ -18,13 +19,14 @@ from shared.protocol import (
     build_result_message,
     is_command,
     new_command_id,
+    token_fingerprint,
 )
 from client.bridge.device_manager import DeviceManager
 from client.bridge.heartbeat import ReconnectBackoff
 
 logger = logging.getLogger(__name__)
 
-CommandHandler = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
+CommandHandler = Callable[[Dict[str, Any]], Awaitable[Dict[str, Any]]]
 
 
 class RelayConnector:
@@ -35,6 +37,7 @@ class RelayConnector:
         self.heartbeat_interval = int(config.get("heartbeat_interval", 30))
         self.reconnect_max_delay = float(config.get("reconnect_max_delay", 60))
         self.reconnect_base_delay = float(config.get("reconnect_base_delay", 1))
+        self.max_ws_message_bytes = int(config.get("max_ws_message_bytes", 16 * 1024 * 1024))
         self._handler: CommandHandler | None = None
         self._ws: Any | None = None
         self._stop = asyncio.Event()
@@ -101,9 +104,14 @@ class RelayConnector:
             )
             await self.send_result(err)
 
-    async def _consume_ws(self, ws: WebSocketClientProtocol) -> None:
+    async def _consume_ws(self, ws: Any) -> None:
         self._ws = ws
         try:
+            logger.info(
+                "Relay WebSocket 已就绪，等待下行指令 bridge_id=%s token_fp=%s",
+                self.bridge_id,
+                token_fingerprint(self.auth_token),
+            )
             async for raw in ws:
                 try:
                     msg = json.loads(raw)
@@ -119,11 +127,19 @@ class RelayConnector:
         backoff = ReconnectBackoff(self.reconnect_base_delay, self.reconnect_max_delay)
         while not self._stop.is_set():
             try:
-                logger.info("连接 Relay: %s", self.relay_url)
+                logger.info(
+                    "连接 Relay: url=%s bridge_id=%s token_fp=%s max_ws_message_bytes=%s "
+                    "(与 Relay 日志中 relay_token_fp 一致则表示 token 配置一致)",
+                    self.relay_url,
+                    self.bridge_id,
+                    token_fingerprint(self.auth_token),
+                    self.max_ws_message_bytes,
+                )
                 async with websockets.connect(
                     self.relay_url,
                     ping_interval=20,
                     ping_timeout=20,
+                    max_size=self.max_ws_message_bytes,
                 ) as ws:
                     backoff.reset()
                     await ws.send(
@@ -132,11 +148,51 @@ class RelayConnector:
                             ensure_ascii=False,
                         )
                     )
+                    logger.info(
+                        "已发送 auth 首包，等待 Relay 确认… bridge_id=%s token_fp=%s",
+                        self.bridge_id,
+                        token_fingerprint(self.auth_token),
+                    )
                     await self._consume_ws(ws)
+                    logger.info("Relay WebSocket 读循环结束 bridge_id=%s", self.bridge_id)
             except asyncio.CancelledError:
                 raise
+            except ConnectionClosed as e:
+                rcvd = e.rcvd
+                code = rcvd.code if rcvd is not None else None
+                reason = (rcvd.reason if rcvd is not None else "") or ""
+                if code == 4001:
+                    logger.error(
+                        "Relay 关闭连接：鉴权失败 (code=4001) reason=%r bridge_id=%s "
+                        "client_token_fp=%s — 请核对本机 BRIDGE_AUTH_TOKEN / bridge.yaml "
+                        "与服务器 RELAY_AUTH_TOKEN 是否完全一致（勿多空格、引号或 YAML 未展开 ${VAR}）",
+                        reason,
+                        self.bridge_id,
+                        token_fingerprint(self.auth_token),
+                    )
+                elif code == 1009:
+                    logger.error(
+                        "Relay 关闭连接：单帧过大 (code=1009) bridge_id=%s — 多为截图等结果的 JSON "
+                        "超过 Relay/WebSocket 限制。请在服务器增大 RELAY_WS_MAX_MESSAGE_BYTES，"
+                        "或在 bridge.yaml 设置 relay.max_ws_message_bytes（默认 16MiB），并保持两端一致",
+                        self.bridge_id,
+                    )
+                else:
+                    logger.warning(
+                        "Relay WebSocket 已关闭: code=%s reason=%r bridge_id=%s token_fp=%s",
+                        code,
+                        reason,
+                        self.bridge_id,
+                        token_fingerprint(self.auth_token),
+                    )
             except Exception as e:
-                logger.warning("Relay 连接断开: %s", e)
+                logger.warning(
+                    "Relay 连接异常: %s bridge_id=%s token_fp=%s",
+                    e,
+                    self.bridge_id,
+                    token_fingerprint(self.auth_token),
+                    exc_info=logger.isEnabledFor(logging.DEBUG),
+                )
             if self._stop.is_set():
                 break
             await backoff.sleep()

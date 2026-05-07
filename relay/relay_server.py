@@ -16,6 +16,7 @@ from shared.protocol import (
     is_heartbeat,
     is_result,
     new_command_id,
+    token_fingerprint,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,16 @@ class BridgeRelayServer:
         self.host = str(config.get("host", "0.0.0.0"))
         self.port = int(config.get("port", 8091))
         self.auth_token = str(config["auth_token"])
+        logger.info(
+            "Relay 配置的 Bridge 鉴权 token 指纹 token_fp=%s（客户端日志中的 token_fp 须与此一致）",
+            token_fingerprint(self.auth_token),
+        )
+        self.max_ws_message_bytes = int(config.get("max_ws_message_bytes", 16 * 1024 * 1024))
+        logger.info(
+            "Relay WebSocket 单帧上限 max_ws_message_bytes=%s（默认可通过 RELAY_WS_MAX_MESSAGE_BYTES 调整；"
+            "过小会导致截图结果触发 1009 message too big 并断开 Bridge）",
+            self.max_ws_message_bytes,
+        )
         self._sessions = SessionManager(on_device_update=self._notify_console_listeners)
         self.console_events = _ConsoleEventBus()
         self._stop = asyncio.Event()
@@ -63,15 +74,50 @@ class BridgeRelayServer:
 
     async def _handle_bridge_connection(self, websocket: Any) -> None:
         bridge_id: str | None = None
+        peer = getattr(websocket, "remote_address", None)
         try:
             raw_first = await websocket.recv()
             if isinstance(raw_first, bytes):
                 raw_first = raw_first.decode("utf-8")
-            msg = json.loads(raw_first)
-            if not is_auth(msg) or str(msg.get("token")) != self.auth_token:
+            try:
+                msg = json.loads(raw_first)
+            except json.JSONDecodeError as e:
+                preview = (raw_first[:200] + "…") if len(raw_first) > 200 else raw_first
+                logger.warning("Bridge 首包非合法 JSON: peer=%s err=%s preview=%r", peer, e, preview)
+                await websocket.close(code=4400, reason="invalid json")
+                return
+            if not isinstance(msg, dict):
+                logger.warning("Bridge 首包不是 JSON 对象: peer=%s type=%s", peer, type(msg).__name__)
+                await websocket.close(code=4400, reason="invalid message")
+                return
+            if not is_auth(msg):
+                logger.warning(
+                    "Bridge 鉴权拒绝: 首包类型不是 auth peer=%s msg_type=%s keys=%s",
+                    peer,
+                    msg.get("type"),
+                    list(msg.keys())[:12],
+                )
+                await websocket.close(code=4001, reason="unauthorized")
+                return
+            client_token = str(msg.get("token") or "")
+            if client_token != self.auth_token:
+                logger.warning(
+                    "Bridge 鉴权失败(token 与 Relay 不一致): peer=%s bridge_id_claim=%s "
+                    "client_token_fp=%s relay_token_fp=%s",
+                    peer,
+                    msg.get("bridge_id"),
+                    token_fingerprint(client_token),
+                    token_fingerprint(self.auth_token),
+                )
                 await websocket.close(code=4001, reason="unauthorized")
                 return
             bridge_id = str(msg.get("bridge_id") or "bridge-unknown")
+            logger.info(
+                "Bridge 鉴权成功: peer=%s bridge_id=%s token_fp=%s",
+                peer,
+                bridge_id,
+                token_fingerprint(self.auth_token),
+            )
             sess = BridgeSession(bridge_id=bridge_id, websocket=websocket)
             self._sessions.register(sess)
             self.console_events.publish({"type": "bridge_online", "bridge_id": bridge_id})
@@ -101,7 +147,17 @@ class BridgeRelayServer:
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            logger.warning("Bridge 连接异常 %s: %s", bridge_id, e)
+            err = str(e).lower()
+            if "1009" in str(e) or "message too big" in err or "too big" in err:
+                logger.warning(
+                    "Bridge 连接异常 %s: %s — 多为上行 JSON（如截图 base64）超过 Relay 的 "
+                    "max_ws_message_bytes=%s，请在服务器设置 RELAY_WS_MAX_MESSAGE_BYTES 或在客户端缩小截图",
+                    bridge_id,
+                    e,
+                    getattr(self, "max_ws_message_bytes", "?"),
+                )
+            else:
+                logger.warning("Bridge 连接异常 %s: %s", bridge_id, e)
         finally:
             if bridge_id:
                 await self._sessions.unregister(bridge_id)
@@ -113,8 +169,14 @@ class BridgeRelayServer:
             self._handle_bridge_connection,
             self.host,
             self.port,
+            max_size=self.max_ws_message_bytes,
         ):
-            logger.info("Relay WebSocket 监听 ws://%s:%s", self.host, self.port)
+            logger.info(
+                "Relay WebSocket 监听 ws://%s:%s (max_size=%s)",
+                self.host,
+                self.port,
+                self.max_ws_message_bytes,
+            )
             await self._stop.wait()
 
     def stop(self) -> None:

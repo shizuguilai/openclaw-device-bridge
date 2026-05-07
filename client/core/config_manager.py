@@ -53,6 +53,9 @@ class ConfigManager:
         token = r.get("auth_token")
         if not token:
             raise ConfigError("relay.auth_token 未配置")
+        max_ws = r.get("max_ws_message_bytes")
+        if max_ws is None:
+            max_ws = 16 * 1024 * 1024
         return {
             "relay_url": str(url),
             "auth_token": str(token),
@@ -60,6 +63,7 @@ class ConfigManager:
             "heartbeat_interval": int(r.get("heartbeat_interval", 30)),
             "reconnect_max_delay": float(r.get("reconnect_max_delay", 60)),
             "reconnect_base_delay": float(r.get("reconnect_base_delay", 1)),
+            "max_ws_message_bytes": int(max_ws),
         }
 
     @property

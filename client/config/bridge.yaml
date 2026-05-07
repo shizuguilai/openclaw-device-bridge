@@ -6,6 +6,8 @@ bridge:
 relay:
   url: "ws://127.0.0.1:8091"
   auth_token: "${BRIDGE_AUTH_TOKEN}"
+  # 与 Relay 的 RELAY_WS_MAX_MESSAGE_BYTES 一致；截图 base64 超过默认 1MiB 会导致断连
+  # max_ws_message_bytes: 16777216
   heartbeat_interval: 30
   reconnect_max_delay: 60
   reconnect_base_delay: 1
