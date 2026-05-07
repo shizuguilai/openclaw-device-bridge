@@ -64,7 +64,7 @@ def log_bridge_client_banner(logger: logging.Logger, relay_cfg: dict[str, Any]) 
         f"  bridge_id       : {relay_cfg.get('bridge_id')}",
         f"  token_fp        : {fp}",
         f"  max_ws_bytes    : {relay_cfg.get('max_ws_message_bytes')}",
-        "  说明 token_fp 须与 Relay 启动日志里「Bridge 鉴权 token 指纹」一致；",
+        "  说明 token_fp（sha256 前缀）须与 Relay 启动日志一致；不含口令长度信息。",
         "  若为 empty：多为 bridge.yaml 使用 ${BRIDGE_AUTH_TOKEN} 但未在该终端设置变量。",
         "========================================",
         "",

@@ -14,13 +14,13 @@ from typing import Any
 
 def token_fingerprint(token: str) -> str:
     """
-    日志用 token 指纹（不明文）：比对客户端配置的 token 与 Relay 侧是否一致。
-    两边日志中的 fingerprint 应完全相同；不同则说明 environment/YAML 不一致。
+    日志用 token 指纹（不明文、不泄露口令长度）：比对客户端与 Relay 配置的密钥是否一致。
+    取 SHA256 固定长度前缀；两边日志中的 fingerprint 应完全相同。
     """
     if not token:
         return "empty"
-    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:10]
-    return f"len={len(token)} sha256_10={digest}"
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+    return f"sha256_16={digest}"
 
 MSG_COMMAND = "command"
 MSG_RESULT = "result"
