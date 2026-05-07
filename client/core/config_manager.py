@@ -51,14 +51,21 @@ class ConfigManager:
         if not url:
             raise ConfigError("relay.url 未配置")
         token = r.get("auth_token")
-        if not token:
+        if token is None:
             raise ConfigError("relay.auth_token 未配置")
+        token_str = str(token).strip()
+        if not token_str:
+            raise ConfigError(
+                "relay.auth_token 展开后为空。若 bridge.yaml 写的是 ${BRIDGE_AUTH_TOKEN}，"
+                "请先在启动 Bridge 的终端里设置该变量（Windows PowerShell: "
+                "$env:BRIDGE_AUTH_TOKEN='你的密钥'），或与服务器使用相同的 RELAY_AUTH_TOKEN。"
+            )
         max_ws = r.get("max_ws_message_bytes")
         if max_ws is None:
             max_ws = 16 * 1024 * 1024
         return {
-            "relay_url": str(url),
-            "auth_token": str(token),
+            "relay_url": str(url).strip(),
+            "auth_token": token_str,
             "bridge_id": self.bridge_id,
             "heartbeat_interval": int(r.get("heartbeat_interval", 30)),
             "reconnect_max_delay": float(r.get("reconnect_max_delay", 60)),

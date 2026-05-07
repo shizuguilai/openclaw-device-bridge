@@ -54,7 +54,7 @@ class BridgeRelayServer:
     def __init__(self, config: dict[str, Any]) -> None:
         self.host = str(config.get("host", "0.0.0.0"))
         self.port = int(config.get("port", 8091))
-        self.auth_token = str(config["auth_token"])
+        self.auth_token = str(config["auth_token"]).strip()
         logger.info(
             "Relay 配置的 Bridge 鉴权 token 指纹 token_fp=%s（客户端日志中的 token_fp 须与此一致）",
             token_fingerprint(self.auth_token),
@@ -99,7 +99,7 @@ class BridgeRelayServer:
                 )
                 await websocket.close(code=4001, reason="unauthorized")
                 return
-            client_token = str(msg.get("token") or "")
+            client_token = str(msg.get("token") or "").strip()
             if client_token != self.auth_token:
                 logger.warning(
                     "Bridge 鉴权失败(token 与 Relay 不一致): peer=%s bridge_id_claim=%s "

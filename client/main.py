@@ -16,6 +16,7 @@ from client.bridge.relay_connector import RelayConnector
 from client.bridge.task_router import TaskRouter
 from client.core.config_manager import ConfigManager
 from client.core.logger import setup_logging
+from shared.diagnostics import apply_verbose_logging_if_diag, log_bridge_client_banner
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +25,13 @@ async def main() -> None:
     config_manager = ConfigManager()
     config_manager.load_bridge_config()
     setup_logging(config_manager)
+    apply_verbose_logging_if_diag()
+    relay_cfg = config_manager.relay_config
+    log_bridge_client_banner(logger, relay_cfg)
 
     device_manager = DeviceManager(config_manager.device_config)
     task_router = TaskRouter(config_manager, device_manager)
-    relay_connector = RelayConnector(config_manager.relay_config)
+    relay_connector = RelayConnector(relay_cfg)
 
     async def handle_command(cmd: dict) -> dict:
         return await task_router.route(cmd, device_manager)

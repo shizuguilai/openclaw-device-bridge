@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import sys
 from pathlib import Path
 
@@ -13,11 +14,16 @@ if str(_ROOT) not in sys.path:
 from relay.config import load_relay_config, setup_logging
 from relay.relay_server import BridgeRelayServer
 from relay.web_console.app import WebConsole
+from shared.diagnostics import apply_verbose_logging_if_diag, log_relay_banner
+
+logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
     config = load_relay_config()
     setup_logging()
+    apply_verbose_logging_if_diag()
+    log_relay_banner(logger, config)
     relay = BridgeRelayServer(config)
     wc_cfg = dict(config.get("web_console") or {})
     wc_cfg.setdefault("auth_token", config["auth_token"])

@@ -22,7 +22,14 @@ def load_relay_config(path: str | None = None) -> dict[str, Any]:
     - ``RELAY_WS_MAX_MESSAGE_BYTES``：Bridge WebSocket 单帧上限（字节），默认 16MiB，避免大图截图触发 1009
     """
     _ = path
-    token = os.environ.get("RELAY_AUTH_TOKEN") or os.environ.get("BRIDGE_AUTH_TOKEN") or "dev-change-me"
+    raw = os.environ.get("RELAY_AUTH_TOKEN") or os.environ.get("BRIDGE_AUTH_TOKEN") or "dev-change-me"
+    token = str(raw).strip()
+    console_raw = os.environ.get("RELAY_CONSOLE_TOKEN")
+    if console_raw is None:
+        console_token = token
+    else:
+        cs = str(console_raw).strip()
+        console_token = cs if cs else token
     max_ws = int(os.environ.get("RELAY_WS_MAX_MESSAGE_BYTES", str(_DEFAULT_WS_MAX)))
     return {
         "host": os.environ.get("RELAY_WS_HOST", "0.0.0.0"),
@@ -32,7 +39,7 @@ def load_relay_config(path: str | None = None) -> dict[str, Any]:
         "web_console": {
             "host": os.environ.get("RELAY_CONSOLE_BIND", "0.0.0.0"),
             "port": int(os.environ.get("RELAY_CONSOLE_PORT", "8092")),
-            "auth_token": os.environ.get("RELAY_CONSOLE_TOKEN") or token,
+            "auth_token": console_token,
         },
     }
 
