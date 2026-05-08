@@ -110,11 +110,17 @@ class TaskRouter:
             return {"shell_output": out}
         raise ExecutionError(f"未知 direct 动作: {action}")
 
-    async def _run_single_agent(self, agent_type: str, ctx: TaskContext) -> Any:
+    async def _run_single_agent(
+        self,
+        agent_type: str,
+        ctx: TaskContext,
+        config: dict[str, Any] | None = None,
+    ) -> Any:
+        cfg = dict(config or {})
         dag = self._factory.load_dag_from_dict(
             {
                 "name": "_single",
-                "agents": [{"name": "only", "type": agent_type, "depends_on": [], "config": {}}],
+                "agents": [{"name": "only", "type": agent_type, "depends_on": [], "config": cfg}],
             }
         )
         agents = self._factory.build_agents(dag)
@@ -152,7 +158,13 @@ class TaskRouter:
                 elif route.startswith("agent:"):
                     agent_type = route.split(":", 1)[1]
                     ctx = TaskContext({"device_id": device_id, "command": command, "adb": driver})
-                    data = await self._run_single_agent(agent_type, ctx)
+                    raw_params = command.get("params")
+                    cmd_params: dict[str, Any] = raw_params if isinstance(raw_params, dict) else {}
+                    if agent_type == "ScreenCaptureAgent":
+                        agent_cfg = {**self._cfg.screenshot_config, **cmd_params}
+                    else:
+                        agent_cfg = cmd_params
+                    data = await self._run_single_agent(agent_type, ctx, agent_cfg)
                 elif route.startswith("dag:") or command.get("dag_name"):
                     if command.get("dag_name"):
                         dag_name = str(command["dag_name"])

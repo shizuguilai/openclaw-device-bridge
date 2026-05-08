@@ -101,6 +101,17 @@ class ConfigManager:
         return dict(self._raw.get("security") or {})
 
     @property
+    def screenshot_config(self) -> dict[str, Any]:
+        """截图压缩默认值（在 Bridge 端处理后再发往 Relay，减轻 WS 体积与延迟）。"""
+        s = self._raw.get("screenshot") or {}
+        return {
+            "format": str(s.get("format", "png")),
+            "quality": int(s.get("quality", 80)),
+            "max_width": int(s.get("max_width", 0)),
+            "max_height": int(s.get("max_height", 0)),
+        }
+
+    @property
     def config_dir(self) -> Path:
         if self._config_path is None:
             return Path(__file__).resolve().parents[1] / "config"

@@ -21,12 +21,26 @@ class RelayMcpTool:
     async def device_list(self, bridge_id: str | None = None) -> list[dict[str, Any]]:
         return self._relay.list_devices(bridge_id)
 
-    async def device_screenshot(self, device_id: str, bridge_id: str | None = None) -> dict[str, Any]:
+    async def device_screenshot(
+        self,
+        device_id: str,
+        bridge_id: str | None = None,
+        *,
+        image_format: str = "png",
+        quality: int = 80,
+        max_width: int = 0,
+        max_height: int = 0,
+    ) -> dict[str, Any]:
         cmd = build_command_message(
             command_id=new_command_id(),
             device_id=device_id,
             action="screenshot",
-            params={},
+            params={
+                "format": image_format,
+                "quality": quality,
+                "max_width": max_width,
+                "max_height": max_height,
+            },
         )
         return await self._relay.send_command(bridge_id, cmd)
 

@@ -79,13 +79,24 @@
 
   el("btn-shot").onclick = async () => {
     if (!selectedDevice) return alert("请选择设备");
-    const r = await api(`/api/screenshot/${encodeURIComponent(selectedDevice)}`);
-    const b64 = (r.result && r.result.data && r.result.data.screenshot_base64) || "";
+    const fmt = el("shot-format").value || "jpeg";
+    const q = parseInt(el("shot-quality").value, 10) || 72;
+    const maxw = parseInt(el("shot-maxw").value, 10);
+    const maxWParam = Number.isFinite(maxw) && maxw >= 0 ? maxw : 0;
+    const qs = new URLSearchParams({
+      format: fmt,
+      quality: String(q),
+      max_width: String(maxWParam),
+    });
+    const r = await api(`/api/screenshot/${encodeURIComponent(selectedDevice)}?${qs.toString()}`);
+    const data = (r.result && r.result.data) || {};
+    const b64 = data.screenshot_base64 || "";
+    const mime = data.mime_type || "image/png";
     const wrap = el("screen-wrap");
     if (b64) {
       wrap.innerHTML = "";
       const img = document.createElement("img");
-      img.src = "data:image/png;base64," + b64;
+      img.src = `data:${mime};base64,` + b64;
       img.onclick = (e) => {
         const rect = img.getBoundingClientRect();
         const x = Math.round(((e.clientX - rect.left) / rect.width) * img.naturalWidth);

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 
@@ -41,8 +42,24 @@ def device_list(bridge_id: str | None = None) -> dict[str, Any]:
     return _get(f"/api/devices{q}")
 
 
-def device_screenshot(device_id: str, bridge_id: str | None = None) -> dict[str, Any]:
-    q = f"?bridge_id={bridge_id}" if bridge_id else ""
+def device_screenshot(
+    device_id: str,
+    bridge_id: str | None = None,
+    *,
+    image_format: str = "jpeg",
+    quality: int = 72,
+    max_width: int = 1080,
+    max_height: int = 0,
+) -> dict[str, Any]:
+    qd: dict[str, str] = {
+        "format": image_format,
+        "quality": str(quality),
+        "max_width": str(max_width),
+        "max_height": str(max_height),
+    }
+    if bridge_id:
+        qd["bridge_id"] = bridge_id
+    q = "?" + urlencode(qd)
     return _get(f"/api/screenshot/{device_id}{q}")
 
 

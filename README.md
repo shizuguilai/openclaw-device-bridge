@@ -1,5 +1,64 @@
 # OpenClaw Device Bridge 架构设计
 
+## 0. 实操备忘：截图压缩（Bridge → Relay）
+
+截图路径：**手机 ← ADB ← Bridge Client（本地 Windows/macOS/Linux）← WebSocket（Base64）← Relay/Web Console（远程 Linux）**。大图 PNG 会直接拖慢「编码 + 传输 + 解码」，因此在 **Bridge 端**先用 **Pillow** 缩放并编码为 JPEG/WebP（可选 PNG），再发往服务器。
+
+### 需要安装什么
+
+在 **运行 Bridge Client 的那台机器**（连 ADB 的电脑）上，与项目共用同一虚拟环境：
+
+```bash
+cd openclaw-device-bridge   # 本仓库根目录
+python -m pip install -r requirements.txt
+```
+
+关键点：**`pillow>=10.2.0`**。未安装 Pillow 时，Bridge 仍会截屏，但只会发 **原始 PNG**（体积大），日志里会有提示。
+
+远程 **Relay / Web Console** 侧同样用仓库根目录的 `requirements.txt`（与 Bridge 共用一份依赖列表）；你只需要按各自部署位置分别安装一次。
+
+其他前提：**ADB 可用**、`client/config/bridge.yaml` 里 `devices.adb_path` 指向正确二进制。
+
+### 怎么配置压缩
+
+优先级（后面的覆盖前面的）一般为：**单次请求的参数** > **`bridge.yaml` 中的 `screenshot:` 默认值**。
+
+1. **Web Console（浏览器里）**  
+   页面「截屏」区域可选：**编码**（JPEG / WebP / PNG）、**质量**（1–100）、**最大宽**（像素，`0` = 不缩放）。  
+   页面默认近似「快」：**JPEG、`72`、`1080`**。
+
+2. **Bridge 配置文件 `client/config/bridge.yaml`**  
+   取消注释并按需修改顶层 `screenshot:` 块（示例见仓库内同名文件注释）：
+   - `format`：`jpeg` \| `webp` \| `png`
+   - `quality`：JPEG/WebP 为 1–100；PNG 时起 zlib 压缩级别含义
+   - `max_width` / `max_height`：`0` 表示不按该维度限制（在保持比例前提下缩放）
+
+3. **HTTP API（Console）**  
+
+   `GET /api/screenshot/{device_id}` 查询参数（需带 Console 认证的 header，与前端一致）：  
+   `format`、`quality`、`max_width`、`max_height`；可选 `bridge_id`。
+
+4. **直连指令 `action: screenshot`**  
+   发往 Bridge 的命令里，`params` 可带同上字段，覆盖 `bridge.yaml` 默认。
+
+5. **OpenClaw Skill：`device_screenshot`**（`skill/tool.py`）  
+   可选关键字参数：`image_format`（默认 `jpeg`）、`quality`（默认 `72`）、`max_width`（默认 `1080`）、`max_height`（默认 `0`）。
+
+### 与以前行为对齐（几乎不压缩）
+
+- Web Console：编码选 **PNG**，**最大宽填 `0`**。  
+- 或 API：`?format=png&max_width=0&max_height=0`。
+
+### WebSocket 单条体积
+
+截图以 Base64 放在消息里；若Relay 配置了 **最大帧长**（环境与 `relay.max_ws_message_bytes` / Bridge 侧 `relay.max_ws_message_bytes` 注释），过大仍会失败。适度 **缩小 `max_width` 或改用 JPEG/WebP** 可避免断连。
+
+### DAG / `ScreenCaptureAgent`
+
+DAG YAML 里 `screen_capture` 节点的 `config`（如 `format`、`quality`、`max_height`）会参与 Bridge 侧编码逻辑；按需改成 `jpeg` 等即可让整条链路受益。
+
+---
+
 ## 1. 需求场景
 
 用户在远程 Linux 服务器上运行 OpenClaw（AI Agent），希望通过 OpenClaw 控制本地电脑连接的物理设备（如通过 ADB 连接的手机）。

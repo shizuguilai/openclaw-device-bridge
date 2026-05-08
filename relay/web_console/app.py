@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -63,12 +63,24 @@ class WebConsole:
             return {"result": result}
 
         @app.get("/api/screenshot/{device_id}", dependencies=[Depends(auth)])
-        async def api_screenshot(device_id: str, bridge_id: str | None = None) -> dict[str, Any]:
+        async def api_screenshot(
+            device_id: str,
+            bridge_id: str | None = None,
+            image_format: str = Query("png", alias="format", description="png | jpeg | webp"),
+            quality: int = Query(80, ge=1, le=100),
+            max_width: int = Query(0, ge=0, description=">0 时按宽边缩放"),
+            max_height: int = Query(0, ge=0, description=">0 时按高边缩放"),
+        ) -> dict[str, Any]:
             cmd = {
                 "type": "command",
                 "device_id": device_id,
                 "action": "screenshot",
-                "params": {},
+                "params": {
+                    "format": image_format,
+                    "quality": quality,
+                    "max_width": max_width,
+                    "max_height": max_height,
+                },
                 "timeout_ms": 30000,
             }
             return {"result": await self.relay.send_command(bridge_id, cmd)}

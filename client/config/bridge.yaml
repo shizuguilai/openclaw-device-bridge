@@ -23,6 +23,14 @@ executor:
   timeout: 30.0
   max_concurrent_tasks: 5
 
+# Bridge 端截图：经 Pillow 压缩/缩放后再发往 Relay（减轻 WS 延迟）
+# 单次请求可通过 Web Console 或 command.params 覆盖
+# screenshot:
+#   format: jpeg       # png | jpeg | webp
+#   quality: 72        # jpeg/webp 1–100；png 时映射为 zlib 压缩级别
+#   max_width: 1080    # 0 表示不缩放；可与 max_height 同时限制在原图比例内
+#   max_height: 0
+
 logging:
   level: INFO
   format: "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s"
