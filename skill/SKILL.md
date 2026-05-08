@@ -2,6 +2,8 @@
 
 控制通过 Bridge Relay 连接的本地物理设备（Android / ADB）。
 
+截图压缩、依赖安装与 Relay 环境变量详见仓库根目录 **[SETUP.md](../SETUP.md)**（与 Bridge 同仓时路径为 `openclaw-device-bridge/SETUP.md`）。
+
 ## 环境变量
 
 - `OPENCLAW_RELAY_CONSOLE_URL`：Web Console 基址，默认 `http://127.0.0.1:8092`
